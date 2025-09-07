@@ -255,38 +255,29 @@ int URI_FUNC(SetFragmentMm)(URI_TYPE(Uri) * uri,
 		return URI_ERROR_SYNTAX;
 	}
 
-	/* Clear old value */
-	if ((uri->owner == URI_TRUE) && (uri->fragment.first != uri->fragment.afterLast)) {
-		memory->free(memory, (URI_CHAR *)uri->fragment.first);
-	}
-	uri->fragment.first = NULL;
-	uri->fragment.afterLast = NULL;
-
-	/* Already done? */
-	if (first == NULL) {
-		return URI_SUCCESS;
-	}
-
-	assert(first != NULL);
-
 	/* Ensure owned */
-	if (uri->owner == URI_FALSE) {
+	if ((first != NULL) && (uri->owner == URI_FALSE)) {
 		const int res = URI_FUNC(MakeOwnerMm)(uri, memory);
 		if (res != URI_SUCCESS) {
 			return res;
 		}
 	}
 
-	assert(uri->owner == URI_TRUE);
-
 	/* Apply new value */
 	{
+		const URI_TYPE(TextRange) destinationRange = uri->fragment;
+
 		URI_TYPE(TextRange) sourceRange;
 		sourceRange.first = first;
 		sourceRange.afterLast = afterLast;
 
 		if (URI_FUNC(CopyRangeAsNeeded)(&uri->fragment, &sourceRange, memory) == URI_FALSE) {
 			return URI_ERROR_MALLOC;
+		}
+
+		/* Clear old value */
+		if ((uri->owner == URI_TRUE) && (destinationRange.first != destinationRange.afterLast)) {
+			memory->free(memory, (URI_CHAR *)destinationRange.first);
 		}
 	}
 

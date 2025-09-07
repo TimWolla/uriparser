@@ -140,122 +140,132 @@ int URI_FUNC(InternalSetHostMm)(URI_TYPE(Uri) * uri,
 		}
 	}
 
-	{
-		/* Clear old value */
-		const UriBool hadHostBefore = URI_FUNC(HasHost)(uri);
-		if (uri->hostData.ipFuture.first != NULL) {
-			/* NOTE: .hostData.ipFuture holds the very same range pointers
-			 *       as .hostText; we must not free memory twice. */
-			uri->hostText.first = NULL;
-			uri->hostText.afterLast = NULL;
-
-			if ((uri->owner == URI_TRUE) && (uri->hostData.ipFuture.first != uri->hostData.ipFuture.afterLast)) {
-				memory->free(memory, (URI_CHAR *)uri->hostData.ipFuture.first);
-			}
-			uri->hostData.ipFuture.first = NULL;
-			uri->hostData.ipFuture.afterLast = NULL;
-		} else if (uri->hostText.first != NULL) {
-			if ((uri->owner == URI_TRUE) && (uri->hostText.first != uri->hostText.afterLast)) {
-				memory->free(memory, (URI_CHAR *)uri->hostText.first);
-			}
-			uri->hostText.first = NULL;
-			uri->hostText.afterLast = NULL;
-		}
-
-		if (uri->hostData.ip4 != NULL) {
-			memory->free(memory, uri->hostData.ip4);
-			uri->hostData.ip4 = NULL;
-		} else if (uri->hostData.ip6 != NULL) {
-			memory->free(memory, uri->hostData.ip6);
-			uri->hostData.ip6 = NULL;
-		}
-
-		/* Already done setting? */
-		if (first == NULL) {
-			/* Yes, but disambiguate as needed */
-			if (hadHostBefore == URI_TRUE) {
-				uri->absolutePath = URI_TRUE;
-
-				{
-					const UriBool success = URI_FUNC(EnsureThatPathIsNotMistakenForHost)(uri, memory);
-					return (success == URI_TRUE)
-							? URI_SUCCESS
-							: URI_ERROR_MALLOC;
-				}
-			}
-
-			return URI_SUCCESS;
-		}
-	}
-
-	assert(first != NULL);
-
 	/* Ensure owned */
-	if (uri->owner == URI_FALSE) {
+	if ((first != NULL) && (uri->owner == URI_FALSE)) {
 		const int res = URI_FUNC(MakeOwnerMm)(uri, memory);
 		if (res != URI_SUCCESS) {
 			return res;
 		}
 	}
 
-	assert(uri->owner == URI_TRUE);
-
 	/* Apply new value; NOTE that .hostText is set for all four host types */
 	{
-		URI_TYPE(TextRange) sourceRange;
-		sourceRange.first = first;
-		sourceRange.afterLast = afterLast;
+		URI_TYPE(Uri) oldUri = *uri;
 
-		if (URI_FUNC(CopyRangeAsNeeded)(&uri->hostText, &sourceRange, memory) == URI_FALSE) {
-			return URI_ERROR_MALLOC;
-		}
+		uri->hostText.first = NULL;
+		uri->hostText.afterLast = NULL;
+		uri->hostData.ipFuture.first = NULL;
+		uri->hostData.ipFuture.afterLast = NULL;
+		uri->hostData.ip4 = NULL;
+		uri->hostData.ip6 = NULL;
 
-		uri->absolutePath = URI_FALSE;  /* always URI_FALSE for URIs with host  */
+		if (first == NULL) {
+			if (URI_FUNC(HasHost)(&oldUri)) {
+				uri->absolutePath = URI_TRUE;
 
-		/* Fill .hostData as needed */
-		switch (hostType) {
-			case URI_HOST_TYPE_IP4:
-				{
-					uri->hostData.ip4 = memory->malloc(memory, sizeof(UriIp4));
-					if (uri->hostData.ip4 == NULL) {
-						return URI_ERROR_MALLOC;
-					}
+				if (URI_FUNC(EnsureThatPathIsNotMistakenForHost)(uri, memory) == URI_FALSE) {
+					/* Restore original value */
+					uri->hostText = oldUri.hostText;
+					uri->hostData = oldUri.hostData;
+					uri->absolutePath = oldUri.absolutePath;
 
-					{
-						const int res = URI_FUNC(ParseIpFourAddress)(uri->hostData.ip4->data, first, afterLast);
-#if defined(NDEBUG)
-						(void)res;  /* i.e. mark as unused */
-#else
-						assert(res == URI_SUCCESS);  /* because checked for well-formedness earlier */
-#endif
-					}
+					return URI_ERROR_MALLOC;
 				}
-				break;
-			case URI_HOST_TYPE_IP6:
-				{
-					uri->hostData.ip6 = memory->malloc(memory, sizeof(UriIp6));
-					if (uri->hostData.ip6 == NULL) {
-						return URI_ERROR_MALLOC;
-					}
+			}
+		} else {
+			URI_TYPE(TextRange) sourceRange;
+			sourceRange.first = first;
+			sourceRange.afterLast = afterLast;
 
+			if (URI_FUNC(CopyRangeAsNeeded)(&uri->hostText, &sourceRange, memory) == URI_FALSE) {
+				/* Restore original value */
+				uri->hostText = oldUri.hostText;
+				uri->hostData = oldUri.hostData;
+
+				return URI_ERROR_MALLOC;
+			}
+
+			/* Fill .hostData as needed */
+			switch (hostType) {
+				case URI_HOST_TYPE_IP4:
 					{
-						const int res = URI_FUNC(ParseIpSixAddressMm)(uri->hostData.ip6, first, afterLast, memory);
-						assert((res == URI_SUCCESS) || (res == URI_ERROR_MALLOC));  /* because checked for well-formedness earlier */
-						if (res != URI_SUCCESS) {
-							return res;
+						uri->hostData.ip4 = memory->malloc(memory, sizeof(UriIp4));
+						if (uri->hostData.ip4 == NULL) {
+							memory->free(memory, (URI_CHAR *)uri->hostText.first);
+							/* Restore original value */
+							uri->hostText = oldUri.hostText;
+							uri->hostData = oldUri.hostData;
+
+							return URI_ERROR_MALLOC;
+						}
+
+						{
+							const int res = URI_FUNC(ParseIpFourAddress)(uri->hostData.ip4->data, first, afterLast);
+#if defined(NDEBUG)
+							(void)res;  /* i.e. mark as unused */
+#else
+							assert(res == URI_SUCCESS);  /* because checked for well-formedness earlier */
+#endif
 						}
 					}
-				}
-				break;
-			case URI_HOST_TYPE_IPFUTURE:
-				uri->hostData.ipFuture.first = uri->hostText.first;
-				uri->hostData.ipFuture.afterLast = uri->hostText.afterLast;
-				break;
-			case URI_HOST_TYPE_REGNAME:
-				break;
-			default:
-				assert(0 && "Unsupported URI host type");
+					break;
+				case URI_HOST_TYPE_IP6:
+					{
+						uri->hostData.ip6 = memory->malloc(memory, sizeof(UriIp6));
+						if (uri->hostData.ip6 == NULL) {
+							memory->free(memory, (URI_CHAR *)uri->hostText.first);
+							/* Restore original value */
+							uri->hostText = oldUri.hostText;
+							uri->hostData = oldUri.hostData;
+
+							return URI_ERROR_MALLOC;
+						}
+
+						{
+							const int res = URI_FUNC(ParseIpSixAddressMm)(uri->hostData.ip6, first, afterLast, memory);
+							assert((res == URI_SUCCESS) || (res == URI_ERROR_MALLOC));  /* because checked for well-formedness earlier */
+							if (res != URI_SUCCESS) {
+								memory->free(memory, (URI_CHAR *)uri->hostText.first);
+								/* Restore original value */
+								uri->hostText = oldUri.hostText;
+								uri->hostData = oldUri.hostData;
+
+								return res;
+							}
+						}
+					}
+					break;
+				case URI_HOST_TYPE_IPFUTURE:
+					uri->hostData.ipFuture.first = uri->hostText.first;
+					uri->hostData.ipFuture.afterLast = uri->hostText.afterLast;
+					break;
+				case URI_HOST_TYPE_REGNAME:
+					break;
+				default:
+					assert(0 && "Unsupported URI host type");
+			}
+
+			uri->absolutePath = URI_FALSE;  /* always URI_FALSE for URIs with host  */
 		}
+
+		/* Clear old value */
+		if (oldUri.hostData.ipFuture.first != NULL) {
+			/* NOTE: .hostData.ipFuture holds the very same range pointers
+			 *       as .hostText; we must not free memory twice. */
+			oldUri.hostText.first = NULL;
+			oldUri.hostText.afterLast = NULL;
+
+			if ((oldUri.owner == URI_TRUE) && (oldUri.hostData.ipFuture.first != oldUri.hostData.ipFuture.afterLast)) {
+				memory->free(memory, (URI_CHAR *)oldUri.hostData.ipFuture.first);
+			}
+		} else if (oldUri.hostText.first != NULL) {
+			if ((oldUri.owner == URI_TRUE) && (oldUri.hostText.first != oldUri.hostText.afterLast)) {
+				memory->free(memory, (URI_CHAR *)oldUri.hostText.first);
+			}
+		}
+
+		memory->free(memory, oldUri.hostData.ip4);
+		memory->free(memory, oldUri.hostData.ip6);
 	}
 
 	return URI_SUCCESS;

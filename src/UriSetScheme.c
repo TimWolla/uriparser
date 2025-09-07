@@ -217,42 +217,39 @@ int URI_FUNC(SetSchemeMm)(URI_TYPE(Uri) * uri,
 		return URI_ERROR_SYNTAX;
 	}
 
-	/* Clear old value */
-	if ((uri->owner == URI_TRUE) && (uri->scheme.first != uri->scheme.afterLast)) {
-		memory->free(memory, (URI_CHAR *)uri->scheme.first);
-	}
-	uri->scheme.first = NULL;
-	uri->scheme.afterLast = NULL;
-
-	/* Already done setting? */
-	if (first == NULL) {
-		/* Yes, but disambiguate as needed */
-		const UriBool success = URI_FUNC(FixPathNoScheme)(uri, memory);
-		return (success == URI_TRUE)
-				? URI_SUCCESS
-				: URI_ERROR_MALLOC;
-	}
-
-	assert(first != NULL);
-
 	/* Ensure owned */
-	if (uri->owner == URI_FALSE) {
+	if ((first != NULL) && (uri->owner == URI_FALSE)) {
 		const int res = URI_FUNC(MakeOwnerMm)(uri, memory);
 		if (res != URI_SUCCESS) {
 			return res;
 		}
 	}
 
-	assert(uri->owner == URI_TRUE);
-
 	/* Apply new value */
 	{
-		URI_TYPE(TextRange) sourceRange;
-		sourceRange.first = first;
-		sourceRange.afterLast = afterLast;
+		const URI_TYPE(TextRange) destinationRange = uri->scheme;
 
-		if (URI_FUNC(CopyRangeAsNeeded)(&uri->scheme, &sourceRange, memory) == URI_FALSE) {
-			return URI_ERROR_MALLOC;
+		if (first == NULL) {
+			uri->scheme.first = NULL;
+			uri->scheme.afterLast = NULL;
+			if (URI_FUNC(FixPathNoScheme)(uri, memory) == URI_FALSE) {
+				/* Restore original value */
+				uri->scheme = destinationRange;
+				return URI_ERROR_MALLOC;
+			}
+		} else {
+			URI_TYPE(TextRange) sourceRange;
+			sourceRange.first = first;
+			sourceRange.afterLast = afterLast;
+
+			if (URI_FUNC(CopyRangeAsNeeded)(&uri->scheme, &sourceRange, memory) == URI_FALSE) {
+				return URI_ERROR_MALLOC;
+			}
+		}
+
+		/* Clear old value */
+		if ((uri->owner == URI_TRUE) && (destinationRange.first != destinationRange.afterLast)) {
+			memory->free(memory, (URI_CHAR *)destinationRange.first);
 		}
 	}
 

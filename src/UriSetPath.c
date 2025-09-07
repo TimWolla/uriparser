@@ -448,37 +448,40 @@ int URI_FUNC(SetPathMm)(URI_TYPE(Uri) * uri,
 		return URI_ERROR_SYNTAX;
 	}
 
-	/* Clear old value */
-	{
-		const int res = URI_FUNC(FreeUriPath)(uri, memory);
-		if (res != URI_SUCCESS) {
-			return res;
-		}
-		uri->absolutePath = URI_FALSE;
-	}
-
-	/* Already done? */
-	if (first == NULL) {
-		return URI_SUCCESS;
-	}
-
-	assert(first != NULL);
-
 	/* Ensure owned */
-	if (uri->owner == URI_FALSE) {
+	if ((first != NULL) && (uri->owner == URI_FALSE)) {
 		const int res = URI_FUNC(MakeOwnerMm)(uri, memory);
 		if (res != URI_SUCCESS) {
 			return res;
 		}
 	}
 
-	assert(uri->owner == URI_TRUE);
-
 	/* Apply new value */
 	{
-		const int res = URI_FUNC(InternalSetPath)(uri, first, afterLast, memory);
-		assert((res == URI_SUCCESS) || (res == URI_ERROR_SYNTAX) || (res == URI_ERROR_MALLOC));
-		return res;
+		URI_TYPE(Uri) oldUri = *uri;
+
+		uri->absolutePath = URI_FALSE;
+
+		if (first == NULL) {
+			const int res = URI_FUNC(FreeUriPath)(uri, memory);
+#if defined(NDEBUG)
+			(void)res;  /* i.e. mark as unused */
+#else
+			assert(res == URI_SUCCESS); /* FreeUriPath is infallible */
+#endif
+		} else {
+			uri->pathHead = NULL;
+			uri->pathTail = NULL;
+			const int res = URI_FUNC(InternalSetPath)(uri, first, afterLast, memory);
+			assert((res == URI_SUCCESS) || (res == URI_ERROR_SYNTAX) || (res == URI_ERROR_MALLOC));
+			if (res != URI_SUCCESS) {
+				uri->pathHead = oldUri.pathHead;
+				uri->pathTail = oldUri.pathTail;
+				uri->absolutePath = oldUri.absolutePath;
+				return res;
+			}
+			URI_FUNC(FreeUriPath)(&oldUri, memory);
+		}
 	}
 }
 

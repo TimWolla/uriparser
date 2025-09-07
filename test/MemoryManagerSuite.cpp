@@ -155,6 +155,21 @@ static UriQueryListA * parseQueryList(const char * queryString) {
 	return queryList;
 }
 
+static void assertUriEqual(const UriUriA * uri, const char * expected) {
+	int charsRequired = -1;
+	ASSERT_EQ(uriToStringCharsRequiredA(uri, &charsRequired), URI_SUCCESS);
+	ASSERT_TRUE(charsRequired >= 0);
+
+	char * const buffer = (char *)malloc(charsRequired + 1);
+	ASSERT_TRUE(buffer != NULL);
+
+	ASSERT_EQ(uriToStringA(buffer, uri, charsRequired + 1, NULL), URI_SUCCESS);
+
+	EXPECT_STREQ(buffer, expected);
+
+	free(buffer);
+}
+
 }  // namespace
 
 
@@ -522,4 +537,172 @@ TEST(FailingMemoryManagerSuite, RemoveBaseUriMm) {
 
 	uriFreeUriMembersA(&absoluteSource);
 	uriFreeUriMembersA(&absoluteBase);
+}
+
+TEST(FailingMemoryManagerSuite, SetQuery) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "new";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetQueryMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://foo:bar@example.org:8080/a/b/c/?new#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetScheme) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "new";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetSchemeMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "new://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetPort) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "80";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetPortTextMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://foo:bar@example.org:80/a/b/c/?a=b&c=d#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetFragment) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "new";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetFragmentMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#new");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetUserInfo) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "new";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetUserInfoMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://new@example.org:8080/a/b/c/?a=b&c=d#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetPath) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "/new/path/with/more/segments";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetPathMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://foo:bar@example.org:8080/new/path/with/more/segments?a=b&c=d#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
+}
+
+TEST(FailingMemoryManagerSuite, SetHostAuto) {
+	const char * const original = "http://foo:bar@example.org:8080/a/b/c/?a=b&c=d#fragment";
+	UriUriA uri = parse(original);
+	ASSERT_EQ(uriMakeOwnerA(&uri), URI_SUCCESS);
+
+	const char * const first = "127.0.0.1";
+	const char * const afterLast = first + strlen(first);
+
+	for (size_t i = 0;; i++) {
+		FailingMemoryManager failingMemoryManager(i);
+
+		int result = uriSetHostAutoMmA(&uri, first, afterLast, &failingMemoryManager);
+		if (result != URI_SUCCESS) {
+			ASSERT_EQ(result, URI_ERROR_MALLOC);
+			assertUriEqual(&uri, original);
+		} else {
+			assertUriEqual(&uri, "http://foo:bar@127.0.0.1:8080/a/b/c/?a=b&c=d#fragment");
+			break;
+		}
+	}
+
+	uriFreeUriMembersA(&uri);
 }

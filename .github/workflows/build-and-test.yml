@@ -38,15 +38,16 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
-      - name: Add Clang/LLVM repositories (Non-MinGW)
-        if: "${{ ! contains(matrix.cmake_args, 'mingw') }}"
+      - name: Add Clang/LLVM repositories (Non-MinGW Linux)
+        if: "${{ runner.os == 'Linux' && ! contains(matrix.cmake_args, 'mingw') }}"
         run: |-
           set -x
           source /etc/os-release
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo add-apt-repository "deb http://apt.llvm.org/${UBUNTU_CODENAME}/ llvm-toolchain-${UBUNTU_CODENAME}-22 main"
 
-      - name: Install build dependencies
+      - name: Install build dependencies (Linux)
+        if: "${{ runner.os == 'Linux' }}"
         run: |-
           set -x
           sudo apt-get update
@@ -58,8 +59,8 @@ jobs:
               qhelpgenerator-qt5 \
               qtchooser
 
-      - name: Install build dependencies (MinGW)
-        if: "${{ contains(matrix.cmake_args, 'mingw') }}"
+      - name: Install build dependencies (MinGW Linux)
+        if: "${{ runner.os == 'Linux' && contains(matrix.cmake_args, 'mingw') }}"
         run: |-
           set -x
 
@@ -71,8 +72,8 @@ jobs:
               wine-stable \
               wine32:i386
 
-      - name: Install build dependencies (Non-MinGW)
-        if: "${{ ! contains(matrix.cmake_args, 'mingw') }}"
+      - name: Install build dependencies (Non-MinGW Linux)
+        if: "${{ runner.os == 'Linux' && ! contains(matrix.cmake_args, 'mingw') }}"
         run: |-
           sudo apt-get install --yes --no-install-recommends -V \
               clang-22 \

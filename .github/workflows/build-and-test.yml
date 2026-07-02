@@ -1,7 +1,7 @@
 # Copyright (C) 2021 Sebastian Pipping <sebastian@pipping.org>
 # Licensed under the MIT license
 
-name: Build and test (Linux)
+name: Build and test (Linux/macOS)
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build_and_test:
-    name: Build and test (Linux)
+    name: Build and test (Linux/macOS)
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +35,14 @@ jobs:
               -DCMAKE_SYSTEM_NAME=Windows
               -DWIN32=ON
               -DMINGW=ON
+          - name: Native macOS
+            runs-on: macos-26
+            cflags: >-
+              -fsanitize=address,undefined
+              -fno-sanitize-recover=all
+              -fno-omit-frame-pointer
+            ldflags: >-
+              -fsanitize=address,undefined
     runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -59,6 +67,15 @@ jobs:
               lzip \
               qhelpgenerator-qt5 \
               qtchooser
+
+      - name: Install build dependencies (macOS)
+        if: "${{ runner.os == 'macOS' }}"
+        run: |-
+          set -x
+          brew install \
+              doxygen \
+              graphviz \
+              lzip
 
       - name: Install build dependencies (MinGW Linux)
         if: "${{ runner.os == 'Linux' && contains(matrix.cmake_args, 'mingw') }}"

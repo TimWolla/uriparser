@@ -94,7 +94,7 @@ jobs:
             cd googletest-release-${GTEST_VERSION}/
 
             # Silence warning "Compatibility with CMake < 3.10 will be removed"
-            find -name CMakeLists.txt -print -exec sed 's/cmake_minimum_required.*/cmake_minimum_required(VERSION 3.10.0)/' -i {} \;
+            find . -name CMakeLists.txt -print -exec sed -i.bak 's/cmake_minimum_required.*/cmake_minimum_required(VERSION 3.10.0)/'  {} \;
 
             cmake \
                 -DBUILD_SHARED_LIBS=ON \

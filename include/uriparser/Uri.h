@@ -1199,9 +1199,10 @@ URI_PUBLIC UriBool URI_FUNC(IsWellFormedHostIp4)(
  * @see uriIsWellFormedUserInfoA
  * @see uriParseIpSixAddressA
  * @see uriParseIpSixAddressMmA
- * @since 0.9.9
+ * @since 1.0.3
  */
-int URI_FUNC(IsWellFormedHostIp6)(const URI_CHAR * first, const URI_CHAR * afterLast);
+URI_PUBLIC int URI_FUNC(IsWellFormedHostIp6)(
+        const URI_CHAR * first, const URI_CHAR * afterLast);
 
 /**
  * Determines if the given text range contains a well-formed IPv6 address

@@ -52,7 +52,7 @@ set(URIPARSER_SO_REVISION   2)
 set(URIPARSER_SO_AGE        2)
 
 include(CheckCCompilerFlag)
-include(CheckFunctionExists)
+include(CheckCSourceCompiles)
 include(CheckLibraryExists)
 include(CheckSymbolExists)
 include(CMakePackageConfigHelpers)
@@ -141,7 +141,45 @@ endif()
 # UriConfig.h
 #
 check_symbol_exists(wprintf wchar.h HAVE_WPRINTF)
-check_function_exists(reallocarray HAVE_REALLOCARRAY)  # no luck with CheckSymbolExists
+
+check_c_source_compiles("
+        // NOTE: Please keep this block in sync with its sibling in file
+        //       `src/UriMemory.c`!
+        #ifdef HAVE_REALLOCARRAY
+        // For glibc >=2.29 of 2019-02-01
+        #  if !defined(_DEFAULT_SOURCE)
+        #    define _DEFAULT_SOURCE 1
+        #  endif
+
+        // For glibc <2.29
+        #  if !defined(_GNU_SOURCE)
+        #    define _GNU_SOURCE 1
+        #  endif
+
+        // For NetBSD (stdlib.h revision 1.122 of 2020-05-26)
+        #  if defined(__NetBSD__) && !defined(_OPENBSD_SOURCE)
+        #    define _OPENBSD_SOURCE 1
+        #  endif
+
+        // POSIX 2024 (XPG8) for e.g. Illumos/SmartOS
+        #  if !defined(_XOPEN_SOURCE) || (_XOPEN_SOURCE - 0 < 800)
+        #    undef _XOPEN_SOURCE
+        #    define _XOPEN_SOURCE 800
+        #  endif
+        #  if !defined(_POSIX_C_SOURCE) || (_POSIX_C_SOURCE - 0 < 202405L)
+        #    undef _POSIX_C_SOURCE
+        #    define _POSIX_C_SOURCE 202405L
+        #  endif
+        #endif
+
+        #include <stdlib.h>  // reallocarray
+
+        int main(void) {
+            void * const res = reallocarray(NULL, (size_t)2, (size_t)3);
+            return (res == NULL) ? 1 : 0;
+        }"
+    HAVE_REALLOCARRAY)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/UriConfig.h.in UriConfig.h)
 
 #

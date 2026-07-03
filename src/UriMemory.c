@@ -44,6 +44,8 @@
 
 #include "UriConfig.h" /* for HAVE_REALLOCARRAY */
 
+// NOTE: Please keep this block in sync with its sibling in file
+//       `CMakeLists.txt`!
 #ifdef HAVE_REALLOCARRAY
 // For glibc >=2.29 of 2019-02-01
 #  if !defined(_DEFAULT_SOURCE)

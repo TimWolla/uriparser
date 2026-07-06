@@ -573,6 +573,59 @@ static void URI_FUNC(AdvancePastLeadingZeros)(
     *first = remainderFirst;
 }
 
+static int URI_FUNC(NormalizeIpv6)(URI_CHAR * dest, const UriIp6 * ip6) {
+    int start = -1;
+    int end = -1;
+    for (int i = 0; i < 16; i += 2) {
+        if (ip6->data[i] > 0) {
+            continue;
+        }
+        int j = i;
+        for (; j < 16; j++) {
+            if (ip6->data[j] > 0) {
+                break;
+            }
+        }
+        if ((j % 2) == 1) {
+            j--;
+        }
+
+        if (start == -1 || (j - i) > (end - start)) {
+            start = i;
+            end = j;
+        }
+        i = j;
+    }
+
+    int written = 0;
+    for (int i = 0; i < 16; i += 2) {
+        if ((i > 0 && !(i > start && i < end)) || (i == 0 && start == 0)
+                || (i == 14 && end == 16)) {
+            memcpy(dest + written, _UT(":"), 1 * sizeof(URI_CHAR));
+            written++;
+        }
+
+        if (i >= start && i < end) {
+            continue;
+        }
+
+        const uint16_t value = (ip6->data[i] << 8) + ip6->data[i + 1];
+        if (value > 0xfff) {
+            dest[written++] = URI_FUNC(HexToLetterEx)((value >> 12) & 0xf, URI_FALSE);
+        }
+        if (value > 0xff) {
+            dest[written++] = URI_FUNC(HexToLetterEx)((value >> 8) & 0xf, URI_FALSE);
+        }
+        if (value > 0xf) {
+            dest[written++] = URI_FUNC(HexToLetterEx)((value >> 4) & 0xf, URI_FALSE);
+        }
+        dest[written++] = URI_FUNC(HexToLetterEx)((value >> 0) & 0xf, URI_FALSE);
+    }
+    dest[written] = _UT('\0');
+
+    return written;
+}
+
 static URI_INLINE int URI_FUNC(NormalizeSyntaxEngine)(URI_TYPE(Uri) * uri,
         unsigned int inMask, unsigned int * outMask, UriMemoryManager * memory) {
     unsigned int revertMask = URI_NORMALIZED;
@@ -609,7 +662,14 @@ static URI_INLINE int URI_FUNC(NormalizeSyntaxEngine)(URI_TYPE(Uri) * uri,
             *outMask |= URI_NORMALIZE_SCHEME;
         }
 
-        if (normalizeHostCase) {
+        if (uri->hostData.ip6 != NULL) {
+            URI_CHAR out[46];
+            int length = URI_FUNC(NormalizeIpv6)(out, uri->hostData.ip6);
+            if ((uri->hostText.afterLast - uri->hostText.first) != length
+                    || URI_STRNCMP(out, uri->hostText.first, length) != 0) {
+                *outMask |= URI_NORMALIZE_HOST;
+            }
+        } else if (normalizeHostCase) {
             *outMask |= URI_NORMALIZE_HOST;
         } else {
             const UriBool normalizeHostPrecent = URI_FUNC(ContainsUglyPercentEncoding)(
@@ -635,7 +695,25 @@ static URI_INLINE int URI_FUNC(NormalizeSyntaxEngine)(URI_TYPE(Uri) * uri,
 
         /* Host */
         if (inMask & URI_NORMALIZE_HOST) {
-            if (uri->hostData.ipFuture.first != NULL) {
+            if (uri->hostData.ip6 != NULL) {
+                URI_CHAR out[46];
+                int lenInChars = URI_FUNC(NormalizeIpv6)(out, uri->hostData.ip6);
+                if (uri->owner) {
+                    memory->free(memory, (URI_CHAR *)uri->hostText.first);
+                    uri->hostText.first = NULL;
+                    uri->hostText.afterLast = NULL;
+                }
+                URI_CHAR * buffer = memory->malloc(memory, lenInChars * sizeof(URI_CHAR));
+                if (buffer == NULL) {
+                    URI_FUNC(PreventLeakage)(uri, revertMask, memory);
+                    return URI_ERROR_MALLOC;
+                }
+                memcpy(buffer, out, lenInChars * sizeof(URI_CHAR));
+                uri->hostText.first = buffer;
+                uri->hostText.afterLast = buffer + lenInChars;
+
+                revertMask |= URI_NORMALIZE_HOST;
+            } else if (uri->hostData.ipFuture.first != NULL) {
                 /* IPvFuture */
                 if (uri->owner) {
                     URI_FUNC(LowercaseInplace)(uri->hostData.ipFuture.first,

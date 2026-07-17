@@ -1503,8 +1503,8 @@ TEST(UriSuite, TestNormalizeSyntaxMaskRequired) {
     ASSERT_TRUE(testNormalizeMaskHelper(L"http://localhost/?AB%43", URI_NORMALIZE_QUERY));
     ASSERT_TRUE(
             testNormalizeMaskHelper(L"http://localhost/#AB%43", URI_NORMALIZE_FRAGMENT));
-    ASSERT_TRUE(testNormalizeMaskHelper(
-            L"http://[2001:db8:0:1:1:1:1:1]/", URI_NORMALIZED));
+    ASSERT_TRUE(
+            testNormalizeMaskHelper(L"http://[2001:db8:0:1:1:1:1:1]/", URI_NORMALIZED));
     ASSERT_TRUE(testNormalizeMaskHelper(
             L"http://[2001:0db8:0000:0001:1:1:1:1]/", URI_NORMALIZE_HOST));
 }
@@ -1609,11 +1609,11 @@ TEST(UriSuite, TestNormalizeSyntax) {
             testNormalizeSyntaxHelper(L"https://%e4%bd%a0%e5%a5%bd%e4%bd%a0%e5%a5%bd.com",
                     L"https://%E4%BD%A0%E5%A5%BD%E4%BD%A0%E5%A5%BD.com"));
 
-    ASSERT_TRUE(testNormalizeSyntaxHelper(L"https://[2041:0000:140F::875B:131B]",
-            L"https://[2041:0:140f::875b:131b]"));
+    ASSERT_TRUE(testNormalizeSyntaxHelper(
+            L"https://[2041:0000:140F::875B:131B]", L"https://[2041:0:140f::875b:131b]"));
 
-    ASSERT_TRUE(testNormalizeSyntaxHelper(L"https://[2001:0db8:0000:0001:1:1:1:1]",
-            L"https://[2001:db8:0:1:1:1:1:1]"));
+    ASSERT_TRUE(testNormalizeSyntaxHelper(
+            L"https://[2001:0db8:0000:0001:1:1:1:1]", L"https://[2001:db8:0:1:1:1:1:1]"));
 
     ASSERT_TRUE(testNormalizeSyntaxHelper(
             L"https://[2001:0:0:1:0:0:0:1]", L"https://[2001:0:0:1::1]"));

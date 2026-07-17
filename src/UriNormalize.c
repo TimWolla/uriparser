@@ -583,9 +583,9 @@ static int URI_FUNC(NormalizeIpv6)(URI_CHAR * dest, const UriIp6 * ip6) {
         }
 
         const int start = i;
-        do {
+        while (i < 8 && ip6->data[i * 2] == 0 && ip6->data[i * 2 + 1] == 0) {
             i++;
-        } while (i < 8 && ip6->data[i * 2] == 0 && ip6->data[i * 2 + 1] == 0);
+        }
 
         const int length = i - start;
         if (length >= 2 && length > bestLength) {

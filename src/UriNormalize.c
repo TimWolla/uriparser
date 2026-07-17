@@ -574,42 +574,40 @@ static void URI_FUNC(AdvancePastLeadingZeros)(
 }
 
 static int URI_FUNC(NormalizeIpv6)(URI_CHAR * dest, const UriIp6 * ip6) {
-    int start = -1;
-    int end = -1;
-    for (int i = 0; i < 16; i += 2) {
-        if (ip6->data[i] > 0) {
+    int bestStart = -1;
+    int bestLength = 0;
+    for (int i = 0; i < 8;) {
+        if (ip6->data[i * 2] != 0 || ip6->data[i * 2 + 1] != 0) {
+            i++;
             continue;
         }
-        int j = i;
-        for (; j < 16; j++) {
-            if (ip6->data[j] > 0) {
-                break;
-            }
-        }
-        if ((j % 2) == 1) {
-            j--;
+
+        const int start = i;
+        while (i < 8 && ip6->data[i * 2] == 0 && ip6->data[i * 2 + 1] == 0) {
+            i++;
         }
 
-        if (start == -1 || (j - i) > (end - start)) {
-            start = i;
-            end = j;
+        const int length = i - start;
+        if (length >= 2 && length > bestLength) {
+            bestStart = start;
+            bestLength = length;
         }
-        i = j;
     }
 
     int written = 0;
-    for (int i = 0; i < 16; i += 2) {
-        if ((i > 0 && !(i > start && i < end)) || (i == 0 && start == 0)
-                || (i == 14 && end == 16)) {
-            memcpy(dest + written, _UT(":"), 1 * sizeof(URI_CHAR));
-            written++;
-        }
-
-        if (i >= start && i < end) {
+    for (int i = 0; i < 8; i++) {
+        if (i == bestStart) {
+            dest[written++] = _UT(':');
+            dest[written++] = _UT(':');
+            i += bestLength - 1;
             continue;
         }
 
-        const uint16_t value = (ip6->data[i] << 8) + ip6->data[i + 1];
+        if (written > 0 && dest[written - 1] != _UT(':')) {
+            dest[written++] = _UT(':');
+        }
+
+        const uint16_t value = (ip6->data[i * 2] << 8) + ip6->data[i * 2 + 1];
         if (value > 0xfff) {
             dest[written++] = URI_FUNC(HexToLetterEx)((value >> 12) & 0xf, URI_FALSE);
         }
